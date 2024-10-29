@@ -22,6 +22,7 @@ BaseType_t zlcd::takeMutex() {
     if (this->lcdMutex) {
         return xSemaphoreTake(this->lcdMutex, this->timeout);
     }
+    return pdFALSE;
 }
 
 BaseType_t zlcd::freeMutex() {

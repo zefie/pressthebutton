@@ -1,16 +1,17 @@
-#include <Arduino.h>
 #include <esp_system.h>
 #include <freertos/FreeRTOS.h>
 #include <Adafruit_ST7735.h>
 #include <Adafruit_NeoPixel.h>
 #include <SPI.h>
-#include <FS.h>
 #include <esp32-hal-psram.h>
 #include "pins_arduino.h"
 #include "functions.h"
 #include "zlcd.h"
-#include "esp_spiffs.h"
 #include "esp_err.h"
+#include "esp_spiffs.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "driver/spi_master.h"
 #include "tuneplayer.h"
 #include "tunes/terranigma.h"
 #include "tunes/thriller.h"
@@ -20,6 +21,7 @@
 #include "tunes/spinner_stop_oopsie.h"
 #include "spinner.h"
 #include "config.h"
+#include "game.h"
 
 SPIClass spiDMA(HSPI);
 zlcd tft = zlcd(&spiDMA, SS, LCD_DC, LCD_RST, LCD_BL);
@@ -38,43 +40,87 @@ SpinnerResult result;
 Buzzer buzzer(BUZZER_PIN);
 TunePlayer player(buzzer);
 
+
 std::atomic<bool> spinner_active(false); // Flag to control the thread
 
 void checkSPIFFSUsage() {
     size_t total = 0, used = 0;
-    esp_err_t ret = esp_spiffs_info(NULL, &total, &used);
+    esp_err_t ret = esp_spiffs_info(data_partition, &total, &used);
     if (ret != ESP_OK) {
         printf("FFS: Failed to get SPIFFS partition information (%s)\n", esp_err_to_name(ret));
-        return;
     }
     debug("FFS: Total space: %d bytes", total);
     debug("FFS: Used space: %d bytes", used);
     debug("FFS: Free space: %d bytes", total - used);
 }
 
+esp_err_t format_spiffs(esp_vfs_spiffs_conf_t *conf) {
+    tft.lcdezstr(-1, 40,"|1Formatting", nullptr, 2);
+    tft.lcdezstr(-1, 56,"|1Storage", nullptr, 2);
+    tft.drawLine(2, 74, 126, 74, ST77XX_WHITE);
+    tft.lcdezstr(-1, 80,"This may take a");
+    tft.lcdezstr(-1, 88,"moment. Please");
+    tft.lcdezstr(-1, 96,"be patient!");
+    conf->format_if_mount_failed = true;
+    return esp_vfs_spiffs_register(conf);
+}
+
 void init_spiffs() {
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/data",
-        .partition_label = NULL,
+        .partition_label = data_partition,
         .max_files = 5,
-        .format_if_mount_failed = true
+        .format_if_mount_failed = false
     };
-
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
-
     if (ret != ESP_OK) {
         if (ret == ESP_FAIL) {
-            debug("FFS: Failed to mount or format filesystem");
-        } else if (ret == ESP_ERR_NOT_FOUND) {
+            debug("FFS: Failed to mount, attemping to format filesystem");
+            ret = format_spiffs(&conf);
+            if (ret != ESP_OK) {
+                debug("FFS: Failed to format filesystem");
+                return;
+            } else {
+                debug("FFS: Formatted successfully.");
+            }
+         } else if (ret == ESP_ERR_NOT_FOUND) {
             debug("FFS: Failed to find SPIFFS partition");
-        } else {
+         } else {
             debug("FFS: Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        }
-        return;
+            return;
+         }
     }
-    // Get filesystem information
+     // Get filesystem information
     checkSPIFFSUsage();
 }
+
+
+
+void memInfo(uint32_t cap) {
+    size_t freemem = heap_caps_get_free_size(cap);
+    size_t totalmem = heap_caps_get_total_size(cap);
+    size_t usedmem = (totalmem - freemem);
+    char ramtype[9];
+    switch (cap) {
+        case MALLOC_CAP_8BIT:
+            strcpy(ramtype, "  Total");
+            break;
+        case MALLOC_CAP_DMA:
+            strcpy(ramtype, "    DMA");
+            break;
+        case MALLOC_CAP_SPIRAM:
+            strcpy(ramtype, "  PSRAM");
+            break;
+        case MALLOC_CAP_INTERNAL:
+            strcpy(ramtype, "    SYS");
+            break;
+        default:
+            strcpy(ramtype, "    ???");
+            break;
+    }
+    debug("RAM: %s: %u/%u bytes (%.2f%%)", ramtype, usedmem, totalmem, ((float)usedmem / totalmem) * 100);
+}
+
 
 
 void init_sys() {
@@ -82,7 +128,9 @@ void init_sys() {
     debug("SYS: %s running at %d MHz", ESP.getChipModel(), getCpuFrequencyMhz());
     debug("RAM: %u bytes free", heap_caps_get_free_size(MALLOC_CAP_8BIT));      
     debug("FSH: %u bytes", ESP.getFlashChipSize());
-    init_spiffs();
+    memInfo(MALLOC_CAP_INTERNAL);
+    memInfo(MALLOC_CAP_SPIRAM);
+    memInfo(MALLOC_CAP_8BIT);
 }
 
 void init_lcd() {
@@ -207,6 +255,7 @@ void setup() {
     shutdown();    
     init_sys();
     init_lcd();
+    init_spiffs();
     spin_tune_cb = spinner_tune();
     spin_tune_cb.callback = spinnerUpdateCallback; 
 }

@@ -1,5 +1,4 @@
 #include <random>
-#include "functions.h"
 #include <stdarg.h>
 
 void debug(const char* format, ...) {

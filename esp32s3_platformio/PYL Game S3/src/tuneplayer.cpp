@@ -1,4 +1,5 @@
 #include "tuneplayer.h"
+#include <esp32-hal-log.h>
 
 TunePlayer::TunePlayer(Buzzer& buzzer)
     : buzzer_(buzzer), cancelFlag_(false), tuneTaskHandle_(nullptr), isPlaying_(false) {}
@@ -65,9 +66,7 @@ void TunePlayer::playTuneShared() {
             buzzer_.init(freq, 255);
         }
 
-        if (tune_.debug) {
-            printf("Note %d: Freq=%d, Duration=%dms\n", i, freq, duration);
-        }
+        ESP_LOGD("Note %d: Freq=%d, Duration=%dms\n", i, freq, duration);
 
         // Use vTaskDelay instead of sleep
         sleepWithCancellation(static_cast<int>(duration / multiplier));

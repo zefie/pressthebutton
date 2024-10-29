@@ -2,6 +2,7 @@
 #include "spinner.h"
 #include "zlcd.h"
 #include "functions.h"
+#include "game.h"
 
 Spinner::Spinner()
     : spinnerTaskHandle_(nullptr),

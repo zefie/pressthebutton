@@ -1,28 +1,12 @@
 #ifndef TUNEPLAYER_H
 #define TUNEPLAYER_H
-#include <iostream>
 #include <thread>
 #include <atomic>
 #include <vector>
-#include <chrono>
 #include "buzzer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
-struct Note {
-    int frequency;  // Frequency in Hz
-    int duration;   // Duration in milliseconds
-};
-
-struct Tune {
-    float multiplier = 1.0f;
-    bool loopable = false;
-    bool debug = false;
-    std::function<void()> callback = nullptr;
-    int callback_interval = 0;
-    bool callback_at_start = false;
-    std::vector<Note> notes;
-};
+#include "tune.h"
 
 class TunePlayer {
     public:
