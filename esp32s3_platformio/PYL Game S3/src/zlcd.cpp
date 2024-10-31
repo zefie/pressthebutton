@@ -1,13 +1,15 @@
 #include <Adafruit_GFX.h>
-#include <Adafruit_ST7735.h>
+#include <Adafruit_ILI9341.h>
 #include <map>
 #include <string>
 #include "zlcd.h"
 #include "functions.h"
 
 // Constructor
-zlcd::zlcd(SPIClass *spiClass, int8_t cs, int8_t dc, int8_t rst, int8_t bl)
-    : Adafruit_ST7735(spiClass, cs, dc, rst) {
+//zlcd::zlcd(SPIClass *spiClass, int8_t cs, int8_t dc, int8_t rst, int8_t bl)
+zlcd::zlcd(int8_t cs, int8_t dc, int8_t rst, int8_t sclk, int8_t miso, int8_t mosi, int8_t bl)
+    : Adafruit_ILI9341(cs, dc, mosi, sclk, rst, miso) {
+    //: Adafruit_ILI9341(spiClass, cs, dc, rst) {
     this->lcdMutex = xSemaphoreCreateMutex();
     this->backlight_pin = bl;
 }
@@ -39,10 +41,10 @@ BaseType_t zlcd::freeMutex() {
 void zlcd::clearGameArea(bool mini) {
     int startX = 0;
     int startY = mini ? 60 : 40;
-    int width = Adafruit_ST7735::width();    
-    int height = mini ? 42 : Adafruit_ST7735::height() - 40;
+    int width = Adafruit_ILI9341::width();    
+    int height = mini ? 42 : Adafruit_ILI9341::height() - 40;
     if (this->takeMutex() == pdTRUE) {
-        this->fillRect(startX, startY, width, height, ST77XX_BLACK);
+        this->fillRect(startX, startY, width, height, ILI9341_BLACK);
         this->freeMutex();
     } else {
         debug("Failed to take lcdMutex in %s", __func__);
@@ -80,8 +82,8 @@ void zlcd::lcdezstr(int offx, int offy, const std::string &str, const GFXfont *f
 
     uint16_t color = tftcolors[0];
     if (this->takeMutex() == pdTRUE) {
-        screenWidth = Adafruit_ST7735::width();
-        screenHeight = Adafruit_ST7735::height();
+        screenWidth = Adafruit_ILI9341::width();
+        screenHeight = Adafruit_ILI9341::height();
         this->freeMutex();
     } else {
         debug("Failed to take lcdMutex to get width and height in %s", __func__);
@@ -93,8 +95,8 @@ void zlcd::lcdezstr(int offx, int offy, const std::string &str, const GFXfont *f
     }
 
     if (this->takeMutex() == pdTRUE) {
-        Adafruit_ST7735::setTextSize(size);
-        if (font) Adafruit_ST7735::setFont(font);
+        Adafruit_ILI9341::setTextSize(size);
+        if (font) Adafruit_ILI9341::setFont(font);
         this->freeMutex();
     } else {
         debug("Failed to take lcdMutex to setTextSize and setFont in %s", __func__);
@@ -118,9 +120,9 @@ void zlcd::lcdezstr(int offx, int offy, const std::string &str, const GFXfont *f
         }
 
         if (this->takeMutex() == pdTRUE) {
-            Adafruit_ST7735::setTextColor(color);
-            Adafruit_ST7735::setCursor(offx, offy);
-            Adafruit_ST7735::print(s);
+            Adafruit_ILI9341::setTextColor(color);
+            Adafruit_ILI9341::setCursor(offx, offy);
+            Adafruit_ILI9341::print(s);
             this->freeMutex();
         } else {
             debug("Failed to take lcdMutex to setTextColor, setCursor, and print character %s in %s", s, __func__);

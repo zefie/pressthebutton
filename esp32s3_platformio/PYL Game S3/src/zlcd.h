@@ -1,24 +1,20 @@
 #ifndef ZLCD_H
 #define ZLCD_H
 #include <Adafruit_GFX.h>
-#include <Adafruit_ST7735.h>
+#include <Adafruit_ILI9341.h>
 #include <map>
 #include <string>
 
-// Define colors similar to the TFT colors in MicroPython
-#define ST77XX_MAROON 32768
-#define ST77XX_DARKGREEN 1040
-#define ST77XX_NAVY 16
-#define ST77XX_PURPLE 63519
-#define ST77XX_GRAY 33808
+#define ILI9341_GRAY 33808
 extern std::map<int, uint16_t> tftcolors;
 
 // Define zlcd class
 
-class zlcd : public Adafruit_ST7735 {
+class zlcd : public Adafruit_ILI9341 {
     public:
         // Constructor
-        zlcd(SPIClass *spiClass, int8_t cs, int8_t dc, int8_t rst, int8_t bl);
+        //zlcd(SPIClass *spiClass, int8_t cs, int8_t dc, int8_t rst, int8_t bl);
+        zlcd(int8_t cs, int8_t dc, int8_t rst, int8_t sclk, int8_t miso, int8_t mosi, int8_t bl);
         ~zlcd();
 
         // Overrides to add semaphore
@@ -39,10 +35,10 @@ class zlcd : public Adafruit_ST7735 {
 
         // Custom definitions
         std::map<int, uint16_t> tftcolors = {
-            {0, ST77XX_WHITE}, {1, ST77XX_RED}, {2, ST77XX_MAROON},
-            {3, ST77XX_GREEN}, {4, ST77XX_DARKGREEN}, {5, ST77XX_BLUE},
-            {6, ST77XX_NAVY}, {7, ST77XX_CYAN}, {8, ST77XX_YELLOW},
-            {9, ST77XX_PURPLE}, {10, ST77XX_GRAY}, {11, ST77XX_BLACK}
+            {0, ILI9341_WHITE}, {1, ILI9341_RED}, {2, ILI9341_MAROON},
+            {3, ILI9341_GREEN}, {4, ILI9341_DARKGREEN}, {5, ILI9341_BLUE},
+            {6, ILI9341_NAVY}, {7, ILI9341_CYAN}, {8, ILI9341_YELLOW},
+            {9, ILI9341_PURPLE}, {10, ILI9341_GRAY}, {11, ILI9341_BLACK}
         };
 
         uint32_t timeout = pdMS_TO_TICKS(1000);

@@ -7,11 +7,12 @@
 #include "functions.h"
 #include "config.h"
 #include "zlcd.h"
-#include <Adafruit_NeoPixel.h>
+#include <RGBLed.h>
 #include <atomic>
 
+
 extern zlcd tft;
-extern Adafruit_NeoPixel np;
+extern RGBLed led;
 
 struct SpinnerResult {
     int result = -1;

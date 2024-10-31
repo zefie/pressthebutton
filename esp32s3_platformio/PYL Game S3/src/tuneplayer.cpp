@@ -63,7 +63,7 @@ void TunePlayer::playTuneShared() {
         if (freq == 0 || freq == 8) {
             buzzer_.stop();
         } else {
-            buzzer_.init(freq, 255);
+            buzzer_.init(freq, 1);
         }
 
         ESP_LOGD("Note %d: Freq=%d, Duration=%dms\n", i, freq, duration);

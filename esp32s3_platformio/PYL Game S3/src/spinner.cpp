@@ -161,8 +161,7 @@ void Spinner::singleSpin() {
         result.poffset++;
     }
 
-    np.setPixelColor(0, gcolors[result.result].npcolor[0], gcolors[result.result].npcolor[1], gcolors[result.result].npcolor[2]);
-    np.show();
+    led.on(Color(gcolors[result.result].npcolor[0], gcolors[result.result].npcolor[1], gcolors[result.result].npcolor[2]));
 
     // Clear and display text
     tft.lcdezstr(-1, 80, "|" + std::to_string(result.result), nullptr, 3);

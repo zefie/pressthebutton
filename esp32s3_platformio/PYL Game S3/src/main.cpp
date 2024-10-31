@@ -1,7 +1,6 @@
 #include <esp_system.h>
 #include <freertos/FreeRTOS.h>
-#include <Adafruit_ST7735.h>
-#include <Adafruit_NeoPixel.h>
+#include <Adafruit_ILI9341.h>
 #include <SPI.h>
 #include <esp32-hal-psram.h>
 #include "pins_arduino.h"
@@ -22,10 +21,12 @@
 #include "spinner.h"
 #include "config.h"
 #include "game.h"
+#include <RGBLed.h>
 
-SPIClass spiDMA(HSPI);
-zlcd tft = zlcd(&spiDMA, SS, LCD_DC, LCD_RST, LCD_BL);
-Adafruit_NeoPixel np = Adafruit_NeoPixel(NUM_PIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
+//SPIClass spiDMA(ILI9341_SPI_HOST);
+//zlcd tft = zlcd(&spiDMA, ILI9341_SPI_CONFIG_CS_GPIO_NUM, ILI9341_SPI_CONFIG_DC_GPIO_NUM, ILI9341_DEV_CONFIG_RESET_GPIO_NUM, GPIO_BCKL);
+zlcd tft = zlcd(ILI9341_SPI_CONFIG_CS_GPIO_NUM, ILI9341_SPI_CONFIG_DC_GPIO_NUM, ILI9341_DEV_CONFIG_RESET_GPIO_NUM, ILI9341_SPI_BUS_SCLK_IO_NUM, ILI9341_SPI_BUS_MISO_IO_NUM, ILI9341_SPI_BUS_MOSI_IO_NUM, GPIO_BCKL);
+RGBLed led = RGBLed(ANODE, RGB_LED_R, RGB_LED_G, RGB_LED_B);
 Tune spin_tune_cb;
 bool gameover = false;
 bool pattern_mode = false;
@@ -57,7 +58,7 @@ void checkSPIFFSUsage() {
 esp_err_t format_spiffs(esp_vfs_spiffs_conf_t *conf) {
     tft.lcdezstr(-1, 40,"|1Formatting", nullptr, 2);
     tft.lcdezstr(-1, 56,"|1Storage", nullptr, 2);
-    tft.drawLine(2, 74, 126, 74, ST77XX_WHITE);
+    tft.drawLine(2, 74, 126, 74, ILI9341_WHITE);
     tft.lcdezstr(-1, 80,"This may take a");
     tft.lcdezstr(-1, 88,"moment. Please");
     tft.lcdezstr(-1, 96,"be patient!");
@@ -135,12 +136,12 @@ void init_sys() {
 
 void init_lcd() {
     // Initialize the display  
-    spiDMA.begin(SCK, -1, MOSI, SS);
-    tft.setSPISpeed(40000000);
-    debug("SPI: DMA initialized.");
-    tft.initR(INITR_BLACKTAB);
+    //spiDMA.setDataMode(SPI_MODE0);
+    //spiDMA.begin(ILI9341_SPI_BUS_SCLK_IO_NUM, ILI9341_SPI_BUS_MISO_IO_NUM, ILI9341_SPI_BUS_MOSI_IO_NUM, ILI9341_SPI_CONFIG_CS_GPIO_NUM);
+    //debug("SPI: DMA initialized.");
+    tft.begin(ILI9341_SPI_CONFIG_PCLK_HZ);
     tft.setRotation(0);
-    tft.fillScreen(ST7735_BLACK);
+    tft.fillScreen(ILI9341_BLACK);
     debug("LCD: Initialized.");
     tft.setBacklight(true);
 }
@@ -219,30 +220,29 @@ void saveHiScore(uint32_t score, bool classic_mode, bool pattern_mode) {
 
 void shutdown() {
     buzzer.stop();
-    np.setPixelColor(0, np.Color(0,0,0));
-    np.show();
+    led.off();
 }
 
 void showGameHelp(bool classic_mode) {
-    tft.lcdezstr(2, 40,"|AHow To Play:");
-    tft.lcdezstr(2, 48, "Press the |9button");
-    tft.lcdezstr(2, 56, "to stop the |1L|3E|5D|0.");
-    tft.lcdezstr(2, 64, "Don't stop on |1red|0!");
-    int loff = 72;
+    tft.lcdezstr(2, 48,"|AHow To Play:",nullptr, 2);
+    tft.lcdezstr(2, 64, "Touch the screen",nullptr, 2);
+    tft.lcdezstr(2, 80, "to stop the |1L|3E|5D|0.", nullptr, 2);
+    tft.lcdezstr(2, 96, "Don't stop on |1red|0!", nullptr, 2);
+    int loff = 112;
     if (classic_mode == true) {
-        tft.lcdezstr(2, 72, "If you do, your");
-        tft.lcdezstr(2, 80, "score resets to |10|0!");
-        loff = loff + 16;
+        tft.lcdezstr(2, 112, "If you do, your", nullptr, 2);
+        tft.lcdezstr(2, 128, "score resets to |10|0!", nullptr, 2);
+        loff = loff + 32;
     }
-    tft.lcdezstr(2, loff, "Stop on |1red |5"+std::to_string(max_oopsies)+" |0times");
-    tft.lcdezstr(2, loff + 8, "and its |1Game Over|0!");
-    tft.lcdezstr(-1, loff + 24, "|1Press |8the |3button");
-    tft.lcdezstr(-1, loff + 32, "to begin!");
+    tft.lcdezstr(2, loff, "Stop on |1red |5"+std::to_string(max_oopsies)+" |0times", nullptr, 2);
+    tft.lcdezstr(2, loff + 16, "and its |1Game Over|0!", nullptr, 2);
+    tft.lcdezstr(-1, loff + 40, "|1Touch |8the |3screen", nullptr, 2);
+    tft.lcdezstr(-1, loff + 56, "to begin!", nullptr, 2);
 }
 
 void showGameMode(int mode) {
     debug("Game Mode: %i", game_mode);
-    tft.fillRect(0, 152, 128, 8, ST7735_BLACK);
+    tft.fillRect(0, 152, tft.width(), 8, ILI9341_BLACK);
     tft.lcdezstr(54, 152, "|AGame Mode: "+std::to_string(mode));
 }
 
@@ -252,22 +252,24 @@ auto spinnerUpdateCallback = []() {
 
 void setup() {
     Serial.begin(115200);
-    shutdown();    
+    shutdown();
     init_sys();
     init_lcd();
     init_spiffs();
+    led.setup();
+    led.off();
     spin_tune_cb = spinner_tune();
     spin_tune_cb.callback = spinnerUpdateCallback; 
 }
 
 void loop() {
     // Configure Option1 (jumper/switch)
-    gpio_pad_select_gpio(OPT1);
-    gpio_set_direction((gpio_num_t) OPT1, GPIO_MODE_INPUT);
-    gpio_set_pull_mode((gpio_num_t) OPT1, GPIO_PULLDOWN_ONLY);
-    if (gpio_get_level((gpio_num_t) OPT1) == 1) {
+   // gpio_pad_select_gpio(OPT1);
+    //gpio_set_direction((gpio_num_t) OPT1, GPIO_MODE_INPUT);
+    //gpio_set_pull_mode((gpio_num_t) OPT1, GPIO_PULLDOWN_ONLY);
+    //if (gpio_get_level((gpio_num_t) OPT1) == 1) {
         pattern_mode = true;
-    }
+//    }
 
     // Configure button and see if it was held on boot
     gpio_pad_select_gpio(BUTTON);
@@ -306,9 +308,9 @@ void loop() {
         player.play(terranigma());
     }
 
-    tft.lcdezstr(-1, 8, "|9zefie |7presents|0:");
-    tft.lcdezstr(-1, 16, "|1Press |8The |3Button|0!");
-    tft.drawLine(2, 34, 124, 34, ST7735_WHITE);
+    tft.lcdezstr(-1, 8, "|9zefie |7presents|0:", nullptr, 2);
+    tft.lcdezstr(-1, 24, "|1Press |8The |3Button|0!", nullptr, 2);
+    tft.drawLine(2, 40, tft.width() - 2, 40, ILI9341_WHITE);
     showGameHelp(classic_mode);
     showGameMode(game_mode);
 
@@ -322,12 +324,12 @@ void loop() {
     mkscore(0, score_str);
     mkscore(highscore, highscore_str);
 
-    tft.fillScreen(ST7735_BLACK);
+    tft.fillScreen(ILI9341_BLACK);
     tft.lcdezstr(20,8,"|5Score: |0" + score_str);
     tft.lcdezstr(8,16,"|5HiScore: |0"+ highscore_str);
     tft.lcdezstr(7,24,"|1Oopsies:");
     tft.lcdezstr(62,24,"0 / " + std::to_string(max_oopsies));
-    tft.drawLine(2, 34, 124, 34, ST7735_WHITE);
+    tft.drawLine(2, 34, 124, 34, ILI9341_WHITE);
     uint32_t score = 0;
     int oopsies = 0;
     
@@ -394,14 +396,14 @@ void loop() {
             tft.lcdezstr(-1, 96, "|1oopsie!", nullptr, 2);
 
             // small oopsie
-            tft.fillRect(7, 24, 104, 8, ST7735_BLACK);
+            tft.fillRect(7, 24, 104, 8, ILI9341_BLACK);
             tft.lcdezstr(7, 24, "|1Oopsies:");
             tft.lcdezstr(62, 24, std::to_string(oopsies)+" / "+std::to_string(max_oopsies));
         }
 
         // Current Score
         mkscore(score, score_str);
-        tft.fillRect(20, 8, 108, 8, ST7735_BLACK);
+        tft.fillRect(20, 8, 108, 8, ILI9341_BLACK);
         tft.lcdezstr(20,8,"|5Score: |0" + score_str);
         
         if (score > highscore) {
@@ -409,7 +411,7 @@ void loop() {
             highscore = score;
             saveHiScore(highscore, classic_mode, pattern_mode);
             mkscore(highscore, highscore_str);
-            tft.fillRect(8, 16, 108, 8, ST7735_BLACK);
+            tft.fillRect(8, 16, 108, 8, ILI9341_BLACK);
             tft.lcdezstr(8,16,"|5HiScore: |0"+ highscore_str);
         }
 
